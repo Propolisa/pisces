@@ -1,0 +1,33 @@
+{
+  "name": "pisces",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite build",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^7.37.0",
+    "@babylonjs/gui": "^7.37.0",
+    "@babylonjs/inspector": "^7.37.0",
+    "@babylonjs/loaders": "^7.37.0",
+    "@quasar/extras": "^1.16.15",
+    "quasar": "^2.17.4",
+    "vue": "^3.5.13",
+    "web-tide": "github:BarthPaleologue/WebTide"
+  },
+  "devDependencies": {
+    "@quasar/vite-plugin": "^1.8.1",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "gh-pages": "^6.2.0",
+    "sass": "^1.82.0",
+    "sass-embedded": "^1.82.0",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.1",
+    "vue-tsc": "^2.1.10"
+  }
+}
