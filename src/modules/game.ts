@@ -751,7 +751,7 @@ export class Game {
         await this._environment.load(); //environment
 
         await this._loadCharacterAssets(scene); //character
-
+     
         scene.meshes.forEach((m) => {
             if (m.material && m.material.name !== "skyBox") {
                 if (m.material?.fog) m.material.fog.isEnabled = true;
@@ -1138,6 +1138,8 @@ export class Game {
                 //return the mesh and animations
                 return {
                     mesh: outer as Mesh,
+                    real_mesh: root,
+                    skeleton: result.skeletons?.[0],
                     animationGroups: result.animationGroups,
                 };
             });
@@ -1177,13 +1179,13 @@ export class Game {
             this._input,
         );
 
-        //Create the player
-        this._fish = new PropFish(
-            this.assets,
-            scene,
-        );
+        // //Create the player
+        // this._fish = new PropFish(
+        //     this.assets,
+        //     scene,
+        // );
 
-        await this._fish.init();
+        // await this._fish.init();
 
         const camera = this._player.activatePlayerCamera();
         this.player_camera = camera;

@@ -8,13 +8,13 @@
     "build": "vite build",
     "preview": "vite build",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "vigh-pages -d dist"
   },
   "dependencies": {
-    "@babylonjs/core": "^7.37.0",
-    "@babylonjs/gui": "^7.37.0",
-    "@babylonjs/inspector": "^7.37.0",
-    "@babylonjs/loaders": "^7.37.0",
+    "@babylonjs/core": "^7.45.0",
+    "@babylonjs/gui": "^7.45.0",
+    "@babylonjs/inspector": "^7.45.0",
+    "@babylonjs/loaders": "^7.45.0",
     "@quasar/extras": "^1.16.15",
     "quasar": "^2.17.4",
     "vue": "^3.5.13",

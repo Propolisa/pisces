@@ -4,11 +4,14 @@ import {
     Color3,
     Color4,
     ExecuteCodeAction,
+    Matrix,
     Mesh,
+    MeshBuilder,
     Observable,
     ParticleSystem,
     Quaternion,
     Ray,
+    Scalar,
     Scene,
     ShadowGenerator,
     Sound,
@@ -19,12 +22,14 @@ import {
     Vector3,
 } from "@babylonjs/core";
 import { PlayerInput } from "./inputController";
-
-// export class Player extends TransformNode {
-
-// }
+import {
+    AbstractCameraController,
+    PlayerInputPhysicsSimulator,
+} from "./testbed/player_camera_movement";
+import { setupBubbleEmitter } from "./testbed/swim_particle_emitter";
 
 export class Player extends TransformNode {
+    [x: string]: any
     public camera: UniversalCamera;
     public scene: Scene;
     private _input: PlayerInput;
@@ -33,10 +38,8 @@ export class Player extends TransformNode {
     public mesh: Mesh; //outer collisionbox of player
     private _isUnderwater: boolean = false; // Track underwater state
 
-    //Camera
-    private _camRoot: TransformNode;
-    private _yTilt: TransformNode;
-
+    // A constant for movement speed.
+    public static PLAYER_SPEED: number = 5;
     //animations
     private _run: AnimationGroup;
     private _idle: AnimationGroup;
@@ -49,35 +52,8 @@ export class Player extends TransformNode {
     private _prevAnim: AnimationGroup;
     private _isFalling: boolean = false;
     private _jumped: boolean = false;
-    private _isCameraRotating: boolean = false; // Tracks if the camera is already rotating
-
-    //const values
-    private static readonly PLAYER_SPEED: number = 0.45;
 
     public dashTime: number = 0;
-
-    //player movement vars
-    private _deltaTime: number = 0;
-    private _h: number;
-    private _v: number;
-
-    private _moveDirection: Vector3 = new Vector3();
-    private _inputAmt: number;
-
-    //dashing
-    private _dashPressed: boolean;
-    private _canDash: boolean = true;
-
-    //gravity, ground detection, jumping
-    private _gravity: Vector3 = new Vector3();
-    private _lastGroundPos: Vector3 = Vector3.Zero(); // keep track of the last grounded position
-    private _grounded: boolean;
-    private _jumpCount: number = 1;
-
-    //player variables
-    public lanternsLit: number = 1; //num lanterns lit
-    public totalLanterns: number;
-    public win: boolean = false; //whether the game is won
 
     //sparkler
     public sparkler: ParticleSystem; // sparkler particle system
@@ -118,9 +94,15 @@ export class Player extends TransformNode {
         //set up sounds
         this._loadSounds(this.scene);
         //camera
-        this._setupPlayerCamera();
+
         this.mesh = assets.mesh;
+        this.skeleton = assets.skeleton
+        this.real_mesh = assets.real_mesh
         this.mesh.parent = this;
+
+        this.rotation.y = 180;
+
+        this._setupCamera();
 
         // this.scene.getLightByName("sparklight").parent = this.scene
         //     .getTransformNodeByName("Empty");
@@ -146,126 +128,85 @@ export class Player extends TransformNode {
         });
 
         // this._createSparkles(); //create the sparkler particle system
+        
         this._setUpAnimations();
         // shadowGenerator.addShadowCaster(assets.mesh);
+
+        let target_bones = [
+            "mixamorig:RightHand",
+            "mixamorig:RightLeg",
+            "mixamorig:LeftHand",
+            "mixamorig:LeftLeg",
+        ];
+    
+        for (const bone_name of target_bones) {
+            
+            let matching_bone = this.skeleton.bones.find(e => e.name === bone_name)
+            if (matching_bone) {
+                let emission_cube = MeshBuilder.CreateBox(
+                    `bubble_emitter_${bone_name}`,
+                    {
+                        size: .2,
+                    },
+                );
+            emission_cube.parent = this
+                emission_cube.attachToBone(matching_bone, this.real_mesh)
+                // setupBubbleEmitter(this.scene, emission_cube);
+            }
+
+        }
+        
 
         this._input = input;
     }
 
-    private _handleMovement(isUnderwater: boolean): void {
-        // Reset movement direction
-        this._moveDirection = Vector3.Zero();
+    // For physics-based momentum:
+    private _velocity: Vector3 = Vector3.Zero();
 
-        // Fetch input and apply camera-relative movement
-        const inputVector = new Vector3(
-            this._input.horizontal, // X input
-            isUnderwater
-                ? (this._input.inputMap["q"]
-                    ? 1
-                    : this._input.inputMap["e"]
-                    ? -1
-                    : 0)
-                : 0, // Y input for underwater movement only
-            this._input.vertical, // Z input
+    // Create and set up the follow camera.
+    private _setupCamera(): UniversalCamera {
+        // Create the camera at an initial position.
+        const camera = new UniversalCamera(
+            "FollowCam",
+            new Vector3(0, 10, -10),
+            this.scene,
         );
 
-        const clampedInput = inputVector.length() > 1
-            ? inputVector.normalize()
-            : inputVector;
-
-        const forward = this._camRoot.forward.scale(clampedInput.z);
-        const right = this._camRoot.right.scale(clampedInput.x);
-        this._moveDirection = forward.add(right);
-
-        // Include vertical movement (if underwater)
-        if (isUnderwater) {
-            this._moveDirection.y = clampedInput.y; // Preserve Y-axis movement
-        }
-
-        // Scale movement by speed
-        const inputAmount = Math.min(this._moveDirection.length(), 1);
-        this._moveDirection.scaleInPlace(inputAmount * Player.PLAYER_SPEED);
-
-        // Move with collisions
-        this.mesh.moveWithCollisions(this._moveDirection);
-    }
-
-    private _rotateToMatchMovement(): void {
-        const movementDirection = new Vector3(
-            this._input.horizontal,
-            0,
-            this._input.vertical,
+        camera.attachControl(this.scene.getEngine().getRenderingCanvas(), true);
+        var cameraController = new AbstractCameraController(
+            this,
+            camera,
+            this.scene,
+            {
+                desiredCameraDistance: 10,
+                mouseSensitivity: 0.005,
+                smoothFactor: 0.1,
+            },
         );
-        const hasInput = movementDirection.lengthSquared() > 0;
-
-        if (hasInput) {
-            const targetAngle =
-                Math.atan2(movementDirection.x, movementDirection.z) +
-                this._camRoot.rotation.y;
-            const targetQuaternion = Quaternion.FromEulerAngles(
-                0,
-                targetAngle,
-                0,
-            );
-
-            // Smooth rotation
-            this.mesh.rotationQuaternion = Quaternion.Slerp(
-                this.mesh.rotationQuaternion,
-                targetQuaternion,
-                10 * this._deltaTime,
-            );
-        }
+        var playerController = new PlayerInputPhysicsSimulator(
+            this,
+            this.scene,
+            camera,
+            {
+                acceleration: 0.02,
+                deceleration: 0.02,
+                maxSpeed: 0.2,
+                rotationLerpFactor: 0.1,
+            },
+        );
+        this.camera = camera;
     }
 
-    private _handleCameraRotation(): void {
-        if (this._input.inputMap["4"] && !this._isCameraRotating) {
-            this._rotateCamera(Math.PI / 4); // Rotate right by 45 degrees
-        }
-        if (this._input.inputMap["6"] && !this._isCameraRotating) {
-            this._rotateCamera(-Math.PI / 4); // Rotate left by 45 degrees
-        }
+    private _beforeRenderUpdate(): void {
+        this._animatePlayer();
+        // Additional updates (animations, ground detection, etc.) can go here.
     }
 
-    private _updateFromControls(): void {
-        this._deltaTime = this.scene.getEngine().getDeltaTime() / 1000.0;
-
-        // Centralized movement handling
-        this._handleMovement(this._isUnderwater); // Pass the underwater state
-
-        // Rotate the player to match movement direction
-        this._rotateToMatchMovement();
-
-        // Handle camera rotation based on input
-        this._handleCameraRotation();
-
-        // Apply movement to the player mesh
-        this.mesh.moveWithCollisions(this._moveDirection);
-    }
-
-    private _rotateCamera(angle: number): void {
-        if (this._isCameraRotating) return; // Prevent multiple simultaneous rotations
-
-        this._isCameraRotating = true; // Lock rotations
-
-        const initialRotation = this._camRoot.rotation.y;
-        const targetRotation = initialRotation + angle;
-        const duration = 15; // Number of frames for the rotation
-        let frameCount = 0;
-
-        const observer = this.scene.onBeforeRenderObservable.add(() => {
-            frameCount++;
-            const t = Math.min(frameCount / duration, 1); // Progress over time (0 to 1)
-
-            // Lerp the rotation
-            this._camRoot.rotation.y = initialRotation +
-                t * (targetRotation - initialRotation);
-
-            if (t >= 1) {
-                // Animation complete
-                this.scene.onBeforeRenderObservable.remove(observer);
-                this._isCameraRotating = false; // Unlock rotation
-            }
+    public activatePlayerCamera(): UniversalCamera {
+        this.scene.registerBeforeRender(() => {
+            this._beforeRenderUpdate();
         });
+        return this.camera;
     }
 
     private _blendAnimation(
@@ -456,71 +397,6 @@ export class Player extends TransformNode {
         }
 
         return false;
-    }
-
-    //--GAME UPDATES--
-    private _beforeRenderUpdate(): void {
-        this._updateFromControls();
-        // this._updateGroundDetection();
-        this._animatePlayer();
-    }
-
-    public activatePlayerCamera(): UniversalCamera {
-        this.scene.registerBeforeRender(() => {
-            this._beforeRenderUpdate();
-            this._updateCamera();
-        });
-        return this.camera;
-    }
-
-    private _setupPlayerCamera(): UniversalCamera {
-        // Root node for the camera, handles movement and rotation around the player
-        this._camRoot = new TransformNode("root");
-        this._camRoot.position = new Vector3(0, 0, 0); // Base position at the player
-
-        // Camera tilt node, handles the downward tilt of 30 degrees
-        this._yTilt = new TransformNode("yTilt");
-        this._yTilt.rotation = new Vector3(Math.PI / 6, 0, 0); // 30-degree tilt
-        this._yTilt.parent = this._camRoot;
-
-        // UniversalCamera setup
-        this.camera = new UniversalCamera(
-            "camera",
-            new Vector3(0, 0, -10),
-            this.scene,
-        );
-        this.camera.parent = this._yTilt;
-
-        const canvasSize = this._scene.getEngine().getInputElementClientRect();
-
-        // Orthographic mode settings
-        this.camera.mode = UniversalCamera.ORTHOGRAPHIC_CAMERA;
-        const orthoSize = 10; // Adjust to control zoom level
-        const aspectRatio = this.scene.getEngine().getAspectRatio(this.camera);
-        this.camera.orthoLeft = -orthoSize * aspectRatio;
-        this.camera.orthoRight = orthoSize * aspectRatio;
-        this.camera.orthoTop = orthoSize;
-        this.camera.orthoBottom = -orthoSize;
-        this.camera.minZ = -100;
-
-        this.scene.activeCamera = this.camera;
-        return this.camera;
-    }
-
-    private _updateCamera(): void {
-        // Maintain the camera's position relative to the player
-        const playerPosition = this.mesh.position;
-
-        // Smoothly follow the player's position
-        this._camRoot.position = Vector3.Lerp(
-            this._camRoot.position,
-            new Vector3(
-                playerPosition.x,
-                playerPosition.y + 2,
-                playerPosition.z,
-            ),
-            0.1,
-        );
     }
 
     private _createSparkles(): void {

@@ -1,5 +1,5 @@
 import { VertexBuffer } from "@babylonjs/core/Buffers/buffer";
-import { Camera, UniversalCamera, WebGPUEngine } from "@babylonjs/core";
+import { Camera, FreeCamera, WebGPUEngine } from "@babylonjs/core";
 import { UniformBuffer } from "@babylonjs/core/Materials/uniformBuffer";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { ShaderMaterial } from "@babylonjs/core/Materials/shaderMaterial";

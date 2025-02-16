@@ -32,60 +32,8 @@ export class PropFish extends TransformNode {
             };
         });
 
-        this.mesh = mesh;
-        this.animationGroups = animationGroups;
+        // this.mesh = mesh;
+        // this.animationGroups = animationGroups;
 
-        const setAnimationParameters = (vec) => {
-            const anim = animationRanges[
-                Math.floor(Math.random() * animationRanges.length)
-            ];
-            const ofst = Math.floor(Math.random() * (anim.to - anim.from + 1));
-            vec.set(anim.from, anim.to, ofst, Math.random() * 50 + 30);
-        };
-
-        const baker = new VertexAnimationBaker(this._scene, mesh);
-
-        baker.bakeVertexData([{
-            from: 0,
-            to: animationRanges[animationRanges.length - 1].to,
-            name: "Swim",
-        }]).then((vertexData) => {
-            const vertexTexture = baker.textureFromBakedVertexData(vertexData);
-
-            const manager = new BakedVertexAnimationManager(this._scene);
-
-            manager.texture = vertexTexture;
-
-            mesh.bakedVertexAnimationManager = manager;
-
-            const numInstances = 2;
-            const matrices = new Float32Array(numInstances * 16);
-            const animParameters = new Float32Array(numInstances * 4);
-
-            const params = new Vector4();
-            for (let i = 0; i < numInstances; i++) {
-                const matrix = Matrix.Translation(
-                    Math.random() * 100 - 50,
-                    0,
-                    Math.random() * 100 - 50,
-                );
-
-                matrices.set(matrix.asArray(), i * 16);
-
-                setAnimationParameters(params);
-                animParameters.set(params.asArray(), i * 4);
-            }
-
-            mesh.thinInstanceSetBuffer("matrix", matrices);
-            mesh.thinInstanceSetBuffer(
-                "bakedVertexAnimationSettingsInstanced",
-                animParameters,
-                4,
-            );
-
-            this._scene.registerBeforeRender(() => {
-                manager.time += this._scene.getEngine().getDeltaTime() / 1000.0;
-            });
-        });
     }
 }

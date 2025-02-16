@@ -151,8 +151,8 @@ export class Hud {
             this._prevTime = this.time;
 
             //--SOUNDS--
-            this._scene.getSoundByName("gameSong").pause();
-            this._pause.play(); //play pause music
+            // this._scene.getSoundByName("gameSong").pause();
+            // this._pause.play(); //play pause music
         });
 
         //popup tutorials + hint

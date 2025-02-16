@@ -28,15 +28,15 @@ export default {
   },
   data() {
     return {
-      chosen_test_scene: null,
+      chosen_test_scene: "",
       count: 0, // Initialize count variable
     }
   },
   async mounted() {
     const canvas = this.$refs.canvas
     this.canvas = canvas
-    await this.resetBabylon()
-    // this.chosen_test_scene = "water"
+  
+    // this.chosen_test_scene = "hair"
     console.log('Canvas mounted:', canvas)
     this.GAME = new Game(canvas, true)
   },
@@ -55,7 +55,7 @@ export default {
 
       this.engine?.dispose()
       this.scene?.dispose()
-      this.engine = new WebGPUEngine(canvas, { antialias: true })
+      this.engine = new WebGPUEngine(this.canvas, { antialias: true })
       await this.engine.initAsync()
       this.scene = new Scene(this.engine)
     }
